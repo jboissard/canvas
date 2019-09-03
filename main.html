@@ -1,0 +1,259 @@
+<canvas id="myCanvas" width="500" height="500" style="border:1px solid #d3d3d3;">
+Your browser does not support the HTML5 canvas tag.</canvas>
+
+<script>
+
+class Draw {
+  constructor (canvasId = 'myCanvas') {
+    this.c = document.getElementById(canvasId);
+    this.ctx = this.c.getContext("2d");
+
+    this.width = this.c.width;
+    this.height = this.c.height;
+
+    this.clear();
+  }
+
+  clear = ctx => {
+    this.ctx.clearRect(0, 0, this.width, this.height);
+  }
+
+  segment = (s1, s2) => {
+    //const { x1, x2 } = s1;
+    this.ctx.moveTo(s1.x, s1.y);
+    this.ctx.lineTo(s2.x, s2.y);
+    this.ctx.stroke();
+  }
+
+  polygon = a => {
+    a.map((x, i) => {
+      a.map((y, j) => {
+        // avoid redundancy
+        if (j<= i) {
+          return ;
+        }
+
+        this.segment(x, y);
+      });
+    });
+  }
+
+  triangle = (a) => this.polygon(a);
+
+  segments = ss => {
+    return ss.map(s => this.segment(s.s1, s.s2));
+  }
+
+  /**
+   * s: point coordinate
+   * w: point width (optional)
+   * @see  https://www.w3schools.com/tags/canvas_arc.asp
+   */
+
+  circle = (s, w = 4, isFilled = true) => {
+    this.ctx.beginPath();
+
+    const startAngle = 0;
+    const endAngle = 2 * Math.PI;
+
+    this.ctx.arc(s.x, s.y, w, startAngle, endAngle);
+
+    if (isFilled) {
+      this.ctx.fill();
+    } else {
+      this.ctx.stroke();
+    }
+  }
+}
+
+const segmentMiddle = (s1, s2) => {
+  const x = (s1.x + s2.x)/2;
+  const y = (s1.y + s2.y)/2;
+
+  return { x, y };
+}
+
+getBisectorsWrong = (a) => {
+  const n = a.length;
+
+  // loop through array to have uniqeu combination
+  return a.flatMap((x1, i) => {
+    return a.map((x2, j) => {
+      // avoid redundancy
+      if (j<= i) {
+        return ;
+      }
+
+      // get segment middle points
+      const s1 = segmentMiddle(x1, x2);
+      // calculate index of "most distant" point (not really but works nicely in this case)
+      const idx = 3 - (i + j);
+      // point coordinates
+      const s2 = a[idx];
+
+      return {s1, s2};
+    });
+  }).filter(x => x);
+}
+
+middleVector = (v1, v2) => {
+  return vectorNormalize({x: v1.x - v2.x, y:  v1.y - v2.y});
+}
+
+getBisectors = (x1, x2, x3) => {
+  const v12 = vectorFromSegment(x1, x2);
+  const v13 = vectorFromSegment(x1, x3);
+  const mv1 = middleVector(v12, v13);
+
+  console.log(mv1)
+  //const l23 = vectorFromSegment(x2, x3);
+  //
+  const s23 = lineFromSegment(x2, x3);
+}
+
+const vectorFromSegment = (s1, s2) => {
+  const px = s2.x - s1.x;
+  const py = s2.y - s1.y;
+
+  return vectorNormalize({x: px, y: px})
+}
+
+const vectorNormalize = (v, norm = 1) => {
+  const scaleNorm = 1/lengthFromSegment(v.x, v.y);
+
+  const x = scaleNorm * v.x;
+  const y = scaleNorm * v.y;
+
+  return { x, y }; 
+}
+
+const getBb = a => {
+  const n = a.length;
+
+  // loop through array to have uniqeu combination
+  return a.flatMap((x1, i) => {
+    return a.map((x2, j) => {
+      // avoid redundancy
+      if (j<= i) {
+        return ;
+      }
+
+      const l1 = lineFromSegment(x1, x2);
+      // get slope
+      const m = -1/l1.m;
+
+
+      // calculate index of "most distant" point (not really but works nicely in this case)
+      const idx = 3 - (i + j);
+      // point coordinates
+      const s2 = a[idx];
+
+      const q = s2.y - m*s2.x;
+      const l2 = {m, q};
+      const s1 = lineIntersection(l1, l2)
+
+      return {m, q, s2, s1};
+    });
+  }).filter(x => x);
+}
+
+const getC = a => {
+  const n = a.length;
+
+  // loop through array to have uniqeu combination
+  return a.flatMap((x1, i) => {
+    return a.map((x2, j) => {
+      // avoid redundancy
+      if (j<= i) {
+        return ;
+      }
+
+      const l1 = lineFromSegment(x1, x2);
+      // get slope
+      const m = -1/l1.m;
+
+
+      const s2 = segmentMiddle(x1, x2);
+
+      const q = s2.y - m*s2.x;
+      const l2 = {m, q};
+      const s1 = {y: l2.m* 9 + l2.q, x: 9}
+      const s3 = {y: l2.m* 400 + l2.q, x: 400}
+
+      return {m, q, s2: s3, s1};
+    });
+  }).filter(x => x);
+}
+
+const slopeFromSegment = (s1, s2) => (s2.y - s1.y) / (s2.x - s1.x);
+
+const lineFromSegment = (s1, s2) => {
+  const m = slopeFromSegment(s1, s2);
+  const q = s1.y - m*s1.x;
+
+  return { m, q }
+}
+
+const lineIntersection = (l1, l2) => {
+  const x = (l2.q - l1.q)/(l1.m - l2.m);
+  const y = l1.m * x + l1.q;
+
+  return {x, y};
+} 
+
+const lengthFromSegment = (s1, s2) => Math.sqrt(Math.pow(s2.y - s1.y, 2) + Math.pow(s2.x - s1.x, 2));
+
+const s1 = {x: 100, y: 20};
+const s2 = {x: 400, y: 55};
+const s3 = {x: 110,  y: 450};
+// const s4 = {x: 140, y: 500}
+
+const d = new Draw();
+d.triangle([s1, s2, s3]);
+
+const l = lineFromSegment(s1, s3);
+console.log(l)
+
+console.log(Math.atan(l.m))
+console.log(Math.PI/2)
+
+const ss = getBisectors(s1, s2, s3);
+
+console.log(ss);
+
+const l1 = lineFromSegment(ss[0].s1, ss[0].s2);
+const l2 = lineFromSegment(ss[2].s1, ss[2].s2);
+console.log(l1)
+console.log(l2)
+
+const p = lineIntersection(l1, l2)
+console.log(p)
+
+d.circle(p)
+
+d.segments(ss)
+
+const r = lengthFromSegment(p, ss[0].s1) -58;
+
+console.log(r)
+
+d.circle(p, r, false);
+
+const bs = getC([s1, s2, s3]);
+
+console.log(bs)
+//d.segments(bs)
+//
+
+
+const solve2nd = (a, b, c) => {
+  const d = Math.pow(b, 2) - 4 * a * c;
+
+  const x1 = (-b + Math.pow(d))/2*a;
+  const x2 = (-b - Math.pow(d))/2*a;
+
+  return { x1, x2};
+}
+
+
+</script>
